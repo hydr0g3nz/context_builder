@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Args;
 use std::path::PathBuf;
 
-use crate::cli::resolve::resolve_symbol;
+use crate::cli::resolve::resolve_symbol_kind;
 use crate::cli::OutputFormat;
 use crate::gopls::GoplsClient;
 use crate::output;
@@ -22,7 +22,7 @@ pub struct FindImplsArgs {
 
 pub fn run(args: &FindImplsArgs) -> Result<()> {
     let root = args.path.canonicalize()?;
-    let (store, iface_sym) = resolve_symbol(&root, &args.interface)?;
+    let (store, iface_sym) = resolve_symbol_kind(&root, &args.interface, Some("interface"))?;
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()

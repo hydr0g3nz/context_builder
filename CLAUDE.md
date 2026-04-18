@@ -75,3 +75,30 @@ Integration tests live in `tests/integration.rs` and use fixtures in `tests/fixt
 - `semantic/` — multi-package handler+service example with a `go.mod`
 
 Snapshot tests use `insta`; run `cargo insta review` to approve new snapshots.
+
+## Known Invariants & Bug Patterns
+
+### LSP position indexing
+LSP (gopls) uses **0-indexed** line and character. The DB stores **1-indexed** positions (as written by tree-sitter extractor: `start.row + 1`, `start.column + 1`).
+
+Every place that converts a gopls location to a DB lookup **must** apply `+ 1` to both line and character:
+```rust
+let line = loc.range.start.line as usize + 1;
+let col  = loc.range.start.character as usize + 1;  // easy to forget
+```
+Affected files: `src/semantic/call_graph.rs` (callers + callees), `src/semantic/impls.rs`, `src/cli/refs.rs`.
+
+### IMPLEMENTS edge direction
+All IMPLEMENTS edges are stored as `src = interface_id → dst = concrete_id`.
+
+- `find_implementations(iface)` → `get_edges_from(iface_id)` — src = iface ✓
+- `find_interfaces_for(concrete)` → `get_edges_to(concrete_id)` — dst = concrete ✓
+
+`resolve_impls` must flip the edge when queried with a concrete type (gopls returns interface locations in that case):
+```rust
+let (src, dst) = if sym_is_interface { (sym_id, impl_id) } else { (impl_id, sym_id) };
+```
+
+### Symbol name convention
+Methods are stored as `ReceiverType.MethodName` (e.g., `S3Uploader.Upload`), never as bare `Upload`.
+`resolve_symbol` prefers: exact name match → method-suffix match (`.{query}`) → first fuzzy result.

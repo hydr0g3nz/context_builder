@@ -42,18 +42,39 @@ pub async fn find_interfaces_for(
     client: &mut GoplsClient,
     concrete: &Symbol,
 ) -> Result<Vec<Symbol>> {
-    // Reverse: find IMPLEMENTS edges where dst = concrete
-    let concrete_id = match concrete.id {
+    // If given a method (e.g. "S3Uploader.Upload"), resolve the receiver struct instead.
+    // gopls textDocument/implementation on a struct returns interface types (indexed);
+    // on a method it returns interface method positions (not indexed individually).
+    let effective = if concrete.kind == crate::model::SymbolKind::Method {
+        let receiver = concrete.name.split('.').next().unwrap_or(&concrete.name);
+        let q = crate::store::symbols::FindQuery {
+            query: receiver,
+            exact: true,
+            kind: Some("struct"),
+            package: Some(&concrete.package),
+            limit: 1,
+        };
+        match crate::store::symbols::find_symbols(&store.conn, &q)? {
+            mut v if !v.is_empty() => {
+                tracing::debug!("find-iface: method {:?} -> using struct {:?}", concrete.name, v[0].name);
+                v.remove(0)
+            }
+            _ => concrete.clone(),
+        }
+    } else {
+        concrete.clone()
+    };
+
+    let effective_id = match effective.id {
         Some(id) => id,
         None => return Ok(vec![]),
     };
 
-    // Attempt to resolve for this symbol too (gopls can return both directions)
-    if !is_resolved(&store.conn, concrete_id, &EdgeKind::Implements)? {
-        resolve_impls(store, client, concrete).await?;
+    if !is_resolved(&store.conn, effective_id, &EdgeKind::Implements)? {
+        resolve_impls(store, client, &effective).await?;
     }
 
-    let edges = get_edges_to(&store.conn, concrete_id, &EdgeKind::Implements)?;
+    let edges = get_edges_to(&store.conn, effective_id, &EdgeKind::Implements)?;
     let mut result = Vec::new();
     for edge in edges {
         if let Some(sym) = crate::store::symbols::find_symbol_by_id(&store.conn, edge.src)? {
@@ -76,16 +97,25 @@ async fn resolve_impls(store: &Store, client: &mut GoplsClient, sym: &Symbol) ->
 
     match client.implementations(sym).await {
         Ok(locs) => {
+            let sym_is_interface = sym.kind == crate::model::SymbolKind::Interface;
             for loc in locs {
                 let path = uri_to_rel_path(&loc.uri, &root_uri);
                 let line = loc.range.start.line as usize + 1;
-                let col = loc.range.start.character as usize;
+                let col = loc.range.start.character as usize + 1;
                 match find_symbols_at_location(&store.conn, &path, line, col) {
                     Ok(Some(impl_sym)) => {
                         if let Some(impl_id) = impl_sym.id {
+                            // Edge direction: interface -> concrete (src=iface, dst=struct)
+                            // If we queried gopls with an interface, locs are concrete impls.
+                            // If we queried with a concrete type, locs are interfaces.
+                            let (src, dst) = if sym_is_interface {
+                                (sym_id, impl_id)
+                            } else {
+                                (impl_id, sym_id)
+                            };
                             new_edges.push(Edge {
-                                src: sym_id,
-                                dst: impl_id,
+                                src,
+                                dst,
                                 kind: EdgeKind::Implements,
                                 meta: Some(serde_json::json!({"via": "gopls"})),
                             });

@@ -124,7 +124,7 @@ async fn resolve_and_cache(store: &Store, client: &mut GoplsClient, sym: &Symbol
             for call in calls {
                 let callee_path = uri_to_rel_path(&call.to.uri, &root_uri);
                 let line = call.to.selection_range.start.line as usize + 1;
-                let col = call.to.selection_range.start.character as usize;
+                let col = call.to.selection_range.start.character as usize + 1;
                 match find_symbols_at_location(&store.conn, &callee_path, line, col) {
                     Ok(Some(callee)) => {
                         if let Some(callee_id) = callee.id {
@@ -153,7 +153,7 @@ async fn resolve_and_cache(store: &Store, client: &mut GoplsClient, sym: &Symbol
             for call in calls {
                 let caller_path = uri_to_rel_path(&call.from.uri, &root_uri);
                 let line = call.from.selection_range.start.line as usize + 1;
-                let col = call.from.selection_range.start.character as usize;
+                let col = call.from.selection_range.start.character as usize + 1;
                 match find_symbols_at_location(&store.conn, &caller_path, line, col) {
                     Ok(Some(caller)) => {
                         if let Some(caller_id) = caller.id {
