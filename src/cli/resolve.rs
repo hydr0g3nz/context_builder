@@ -38,6 +38,18 @@ pub fn resolve_symbol(root: &Path, sym_name: &str) -> Result<(Store, Symbol)> {
         );
         return Ok((store, exact.clone()));
     }
+    // prefer method whose short name matches exactly: "Upload" -> "S3Uploader.Upload"
+    let method_suffix = format!(".{}", sym_name);
+    if let Some(method) = results.iter().find(|s| s.name.ends_with(&method_suffix)) {
+        tracing::debug!(
+            "resolve {:?} -> {}.{} via method suffix ({}ms)",
+            sym_name,
+            method.package,
+            method.name,
+            t.elapsed().as_millis()
+        );
+        return Ok((store, method.clone()));
+    }
     let sym = results.remove(0);
     tracing::debug!(
         "resolve {:?} -> {}.{} ({}ms)",

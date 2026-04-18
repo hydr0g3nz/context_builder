@@ -61,7 +61,7 @@ pub fn run(args: &RefsArgs) -> Result<()> {
             .map(|loc| RefLocation {
                 file: uri_to_rel_path(&loc.uri, &root_uri),
                 line: loc.range.start.line + 1,
-                col: loc.range.start.character,
+                col: loc.range.start.character + 1,
             })
             .collect();
 
