@@ -23,7 +23,7 @@ impl EdgeKind {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "CALLS" => Some(EdgeKind::Calls),
             "IMPLEMENTS" => Some(EdgeKind::Implements),
@@ -81,7 +81,7 @@ pub fn get_edges_from(conn: &Connection, src: i64, kind: &EdgeKind) -> Result<Ve
         })?
         .filter_map(|r| r.ok())
         .filter_map(|(src, dst, kind_str, meta_str)| {
-            let kind = EdgeKind::from_str(&kind_str)?;
+            let kind = EdgeKind::parse(&kind_str)?;
             let meta = meta_str.and_then(|s| serde_json::from_str(&s).ok());
             Some(Edge { src, dst, kind, meta })
         })
@@ -101,7 +101,7 @@ pub fn get_edges_to(conn: &Connection, dst: i64, kind: &EdgeKind) -> Result<Vec<
         })?
         .filter_map(|r| r.ok())
         .filter_map(|(src, dst, kind_str, meta_str)| {
-            let kind = EdgeKind::from_str(&kind_str)?;
+            let kind = EdgeKind::parse(&kind_str)?;
             let meta = meta_str.and_then(|s| serde_json::from_str(&s).ok());
             Some(Edge { src, dst, kind, meta })
         })

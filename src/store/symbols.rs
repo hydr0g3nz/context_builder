@@ -71,12 +71,12 @@ pub fn find_symbols(conn: &Connection, q: &FindQuery) -> Result<Vec<Symbol>> {
     }
 
     if let Some(kind) = q.kind {
-        conditions.push(format!("kind = ?"));
+        conditions.push("kind = ?".to_string());
         param_values.push(Box::new(kind.to_string()));
     }
 
     if let Some(pkg) = q.package {
-        conditions.push(format!("package = ?"));
+        conditions.push("package = ?".to_string());
         param_values.push(Box::new(pkg.to_string()));
     }
 
@@ -112,7 +112,7 @@ fn row_to_symbol(row: &rusqlite::Row) -> rusqlite::Result<Symbol> {
     let vis_str: String = row.get(9).unwrap_or_else(|_| "private".to_string());
     Ok(Symbol {
         id: Some(row.get(0)?),
-        kind: SymbolKind::from_str(&kind_str).unwrap_or(SymbolKind::Func),
+        kind: SymbolKind::parse(&kind_str).unwrap_or(SymbolKind::Func),
         name: row.get(2)?,
         package: row.get(3)?,
         file: row.get(4)?,
@@ -173,9 +173,11 @@ pub fn truncate_symbols(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+pub type PackageKindCounts = Vec<(String, Vec<(String, i64)>)>;
+
 pub fn packages_with_symbols(
     conn: &Connection,
-) -> Result<Vec<(String, Vec<(String, i64)>)>> {
+) -> Result<PackageKindCounts> {
     let mut pkg_stmt =
         conn.prepare("SELECT DISTINCT package FROM symbols ORDER BY package")?;
     let packages: Vec<String> = pkg_stmt

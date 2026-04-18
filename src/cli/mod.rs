@@ -1,8 +1,10 @@
 pub mod callers;
 pub mod callees;
+pub mod context;
 pub mod find;
 pub mod find_iface;
 pub mod find_impls;
+pub mod impact;
 pub mod index;
 pub mod init;
 pub mod pkg_tree;
@@ -64,4 +66,10 @@ pub enum Commands {
     FindIface(find_iface::FindIfaceArgs),
     /// Find all references to a symbol (requires gopls)
     Refs(refs::RefsArgs),
+
+    // ── Phase 3: AI-native commands ─────────────────────────────────────────
+    /// Analyze the blast radius of changing a symbol (requires gopls)
+    Impact(impact::ImpactArgs),
+    /// Build a ranked context bundle from a free-text task description
+    Context(context::ContextArgs),
 }

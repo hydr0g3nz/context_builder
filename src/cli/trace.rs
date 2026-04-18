@@ -58,7 +58,7 @@ pub fn run(args: &TraceArgs) -> Result<()> {
 fn emit_path(args: &TraceArgs, query: &str, path: &[Symbol], found: bool) {
     match args.output {
         OutputFormat::Json => {
-            output::print_json(format!("trace {}", query), &path);
+            output::print_json(format!("trace {}", query), path);
         }
         OutputFormat::Text => {
             if !found || path.is_empty() {

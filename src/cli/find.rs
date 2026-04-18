@@ -103,7 +103,7 @@ pub fn run(args: &FindArgs) -> Result<()> {
             if result_vec.is_empty() {
                 println!("No symbols found for {:?}", args.query);
             } else {
-                println!("{:<40} {:<12} {:<30} {}", "NAME", "KIND", "PACKAGE", "FILE:LINE");
+                println!("{:<40} {:<12} {:<30} FILE:LINE", "NAME", "KIND", "PACKAGE");
                 println!("{}", "-".repeat(100));
                 for sym in &result_vec {
                     println!(

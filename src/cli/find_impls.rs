@@ -36,7 +36,7 @@ pub fn run(args: &FindImplsArgs) -> Result<()> {
                 match args.output {
                     OutputFormat::Json => output::print_json(
                         format!("find-impls {}", args.interface),
-                        &Vec::<crate::model::Symbol>::new(),
+                        Vec::<crate::model::Symbol>::new(),
                     ),
                     OutputFormat::Text => println!("gopls unavailable"),
                 }
@@ -55,7 +55,7 @@ pub fn run(args: &FindImplsArgs) -> Result<()> {
                 if results.is_empty() {
                     println!("No implementations found for {:?}", args.interface);
                 } else {
-                    println!("{:<40} {:<30} {}", "IMPL", "PACKAGE", "FILE:LINE");
+                    println!("{:<40} {:<30} FILE:LINE", "IMPL", "PACKAGE");
                     println!("{}", "-".repeat(90));
                     for sym in &results {
                         println!(

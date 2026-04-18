@@ -36,7 +36,7 @@ pub fn run(args: &FindIfaceArgs) -> Result<()> {
                 match args.output {
                     OutputFormat::Json => output::print_json(
                         format!("find-iface {}", args.concrete),
-                        &Vec::<crate::model::Symbol>::new(),
+                        Vec::<crate::model::Symbol>::new(),
                     ),
                     OutputFormat::Text => println!("gopls unavailable"),
                 }
@@ -55,7 +55,7 @@ pub fn run(args: &FindIfaceArgs) -> Result<()> {
                 if results.is_empty() {
                     println!("No interfaces found for {:?}", args.concrete);
                 } else {
-                    println!("{:<40} {:<30} {}", "INTERFACE", "PACKAGE", "FILE:LINE");
+                    println!("{:<40} {:<30} FILE:LINE", "INTERFACE", "PACKAGE");
                     println!("{}", "-".repeat(90));
                     for sym in &results {
                         println!(

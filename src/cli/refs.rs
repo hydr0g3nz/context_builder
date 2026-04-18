@@ -45,7 +45,7 @@ pub fn run(args: &RefsArgs) -> Result<()> {
                     OutputFormat::Json => {
                         output::print_json(
                             format!("refs {}", args.symbol),
-                            &Vec::<RefLocation>::new(),
+                            Vec::<RefLocation>::new(),
                         );
                     }
                     OutputFormat::Text => println!("gopls unavailable"),

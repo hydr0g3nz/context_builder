@@ -115,7 +115,7 @@ impl GoplsClient {
             transport,
             _child: child,
             server_version,
-            root_uri: root_uri,
+            root_uri,
         })
     }
 

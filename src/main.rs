@@ -32,5 +32,8 @@ fn main() -> Result<()> {
         Commands::FindImpls(args) => gocx::cli::find_impls::run(args),
         Commands::FindIface(args) => gocx::cli::find_iface::run(args),
         Commands::Refs(args) => gocx::cli::refs::run(args),
+        // Phase 3
+        Commands::Impact(args) => gocx::cli::impact::run(args),
+        Commands::Context(args) => gocx::cli::context::run(args),
     }
 }

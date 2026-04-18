@@ -59,7 +59,7 @@ fn emit_results(args: &CalleesArgs, query: &str, results: &[call_graph::CallNode
                 println!("No callees found for {:?}", query);
                 return;
             }
-            println!("{:<40} {:<30} {}", "CALLEE", "PACKAGE", "FILE:LINE");
+            println!("{:<40} {:<30} FILE:LINE", "CALLEE", "PACKAGE");
             println!("{}", "-".repeat(90));
             for node in results {
                 println!(

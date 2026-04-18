@@ -1,5 +1,7 @@
 pub mod cli;
+pub mod context;
 pub mod gopls;
+pub mod impact;
 pub mod index;
 pub mod model;
 pub mod output;

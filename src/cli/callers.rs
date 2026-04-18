@@ -63,7 +63,7 @@ fn emit_results(args: &CallersArgs, query: &str, results: &[call_graph::CallNode
                 println!("No callers found for {:?}", query);
                 return;
             }
-            println!("{:<40} {:<30} {}", "CALLER", "PACKAGE", "FILE:LINE");
+            println!("{:<40} {:<30} FILE:LINE", "CALLER", "PACKAGE");
             println!("{}", "-".repeat(90));
             for node in results {
                 println!(

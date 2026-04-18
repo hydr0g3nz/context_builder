@@ -28,10 +28,11 @@ cargo test test_schema_v2_migration
 
 ## Architecture
 
-Two execution phases:
+Three execution phases:
 
 **Phase 1 — Static index** (no gopls required): `init`, `index`, `status`, `find`, `pkg-tree`
 **Phase 2 — Semantic queries** (spawns gopls): `callers`, `callees`, `trace`, `find-impls`, `find-iface`, `refs`
+**Phase 3 — AI-native** (uses cached graph, gopls optional): `impact`, `context`
 
 ### Module Map
 
@@ -44,6 +45,8 @@ Two execution phases:
 | `src/index/` | tree-sitter Go parser → symbols; rayon parallel file walking; hash-based incremental re-index |
 | `src/gopls/` | Async tokio child process, JSON-RPC 2.0 with Content-Length framing, LSP queries |
 | `src/semantic/` | BFS call graph traversal (petgraph), interface implementation resolution |
+| `src/impact/` | Blast-radius analysis: caller BFS + risk signals + breakable test detection |
+| `src/context/` | Smart context: seed extraction → graph expand → rank → pack by file |
 
 ### Key Data Flows
 
@@ -52,6 +55,10 @@ Two execution phases:
 **Semantic query (e.g., `callers`):** look up symbol in index → check `edge_resolution` cache → if cached, BFS via petgraph over cached edges → else spawn gopls, run LSP `callHierarchy`, resolve URI+line:col back to symbol IDs, cache edges, BFS.
 
 **LSP transport:** tokio async child process (gopls), `RpcTransport` handles Content-Length framing, drains server notifications until "Finished loading packages" sentinel.
+
+**Impact analysis (`impact`):** resolve symbol → BFS callers via `semantic::call_graph::callers` → partition into direct/test/transitive → apply heuristic risk signals (HTTP handler pattern, high fan-in, test breakage) → emit `next_actions`.
+
+**Smart context (`context`):** extract Go identifier seeds from free-text task → BFS depth-1 over cached CALLS+IMPLEMENTS edges (no gopls spawn needed) → score by distance+centrality → group by file path. Works offline from cached graph.
 
 ### Database Schema (SQLite v2, WAL)
 
@@ -75,6 +82,25 @@ Integration tests live in `tests/integration.rs` and use fixtures in `tests/fixt
 - `semantic/` — multi-package handler+service example with a `go.mod`
 
 Snapshot tests use `insta`; run `cargo insta review` to approve new snapshots.
+
+## Phase 3 — Impact & Context
+
+### `gocx impact <sym> [--depth=3]`
+- Spawns gopls; runs `semantic::call_graph::callers` BFS
+- Partitions results: `direct_callers` (depth=1), `breakable_tests` (file ends `_test.go`), `transitive_reach` (total count)
+- Risk signals (string heuristics, no extra deps):
+  - `"called from HTTP handler"` — caller name contains `servehttp`/`handler`/`handlefunc` or file contains `handler`
+  - `"high fan-in (N callers)"` — transitive_reach > 10
+  - `"breaks N test(s) if changed"` — breakable_tests non-empty
+- `next_actions`: `gocx trace <handler> <sym>` if HTTP handler found; `gocx find-iface <ReceiverType>` if sym is a method
+
+### `gocx context <task> [--limit=30]`
+Pipeline in `src/context/`:
+1. **seed.rs** — regex-extract CamelCase tokens + words ≥4 chars from task text → `find_symbols` lookup → deduplicated seed list
+2. **expand.rs** — BFS depth-1 from each seed over cached `CALLS` + `IMPLEMENTS` edges (both directions); cap at `limit*3` nodes
+3. **rank.rs** — score = `0.6 * distance_score + 0.4 * centrality_score`; sort descending; truncate to `limit`
+4. **pack.rs** — group ranked symbols by file path; build summary string
+- Works fully offline if Phase 2 edges are cached; logs debug warning when edges are missing for a seed
 
 ## Known Invariants & Bug Patterns
 
@@ -102,3 +128,6 @@ let (src, dst) = if sym_is_interface { (sym_id, impl_id) } else { (impl_id, sym_
 ### Symbol name convention
 Methods are stored as `ReceiverType.MethodName` (e.g., `S3Uploader.Upload`), never as bare `Upload`.
 `resolve_symbol` prefers: exact name match → method-suffix match (`.{query}`) → first fuzzy result.
+
+### `SymbolKind` / `EdgeKind` parsing
+Both types have a `parse(s: &str) -> Option<Self>` method (not `from_str` — avoids clippy `should_implement_trait` lint). Call sites: `store/symbols.rs` (`SymbolKind::parse`), `store/edges.rs` (`EdgeKind::parse`).

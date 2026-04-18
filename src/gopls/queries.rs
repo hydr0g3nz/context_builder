@@ -156,8 +156,8 @@ impl GoplsClient {
         let params = ImplementationParams {
             text_document: TextDocumentIdentifier { uri },
             position: crate::gopls::protocol::Position {
-                line: sym.line.saturating_sub(1) as u32,
-                character: sym.col.saturating_sub(1) as u32,
+                line: sym.line.saturating_sub(1),
+                character: sym.col.saturating_sub(1),
             },
         };
         let t = std::time::Instant::now();
@@ -177,8 +177,8 @@ impl GoplsClient {
         let params = ReferenceParams {
             text_document: TextDocumentIdentifier { uri },
             position: crate::gopls::protocol::Position {
-                line: sym.line.saturating_sub(1) as u32,
-                character: sym.col.saturating_sub(1) as u32,
+                line: sym.line.saturating_sub(1),
+                character: sym.col.saturating_sub(1),
             },
             context: ReferenceContext {
                 include_declaration: false,
@@ -201,8 +201,8 @@ impl GoplsClient {
         let params = TextDocumentPositionParams {
             text_document: TextDocumentIdentifier { uri },
             position: crate::gopls::protocol::Position {
-                line: sym.line.saturating_sub(1) as u32,
-                character: sym.col.saturating_sub(1) as u32,
+                line: sym.line.saturating_sub(1),
+                character: sym.col.saturating_sub(1),
             },
         };
         let result: Option<Vec<Location>> = self
@@ -218,8 +218,8 @@ impl GoplsClient {
         let params = CallHierarchyPrepareParams {
             text_document: TextDocumentIdentifier { uri },
             position: crate::gopls::protocol::Position {
-                line: sym.line.saturating_sub(1) as u32,
-                character: sym.col.saturating_sub(1) as u32,
+                line: sym.line.saturating_sub(1),
+                character: sym.col.saturating_sub(1),
             },
         };
         let result: Option<Vec<CallHierarchyItem>> = self
