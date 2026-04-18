@@ -1,8 +1,15 @@
+pub mod callers;
+pub mod callees;
 pub mod find;
+pub mod find_iface;
+pub mod find_impls;
 pub mod index;
 pub mod init;
 pub mod pkg_tree;
+pub mod refs;
+pub mod resolve;
 pub mod status;
+pub mod trace;
 
 use clap::{Parser, Subcommand};
 
@@ -14,6 +21,10 @@ use clap::{Parser, Subcommand};
     long_about = "gocx pre-indexes Go codebases into a semantic graph and exposes\ncompact, AI-optimized queries via CLI."
 )]
 pub struct Cli {
+    /// Enable verbose debug output with timing info (written to stderr)
+    #[arg(short = 'v', long, global = true)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -37,4 +48,20 @@ pub enum Commands {
     /// Show package tree structure
     #[command(name = "pkg-tree")]
     PkgTree(pkg_tree::PkgTreeArgs),
+
+    // ── Phase 2: Semantic commands ──────────────────────────────────────────
+    /// Find all callers of a symbol (requires gopls)
+    Callers(callers::CallersArgs),
+    /// Find all callees of a symbol (requires gopls)
+    Callees(callees::CalleesArgs),
+    /// Trace a call path between two symbols (requires gopls)
+    Trace(trace::TraceArgs),
+    /// Find implementations of an interface (requires gopls)
+    #[command(name = "find-impls")]
+    FindImpls(find_impls::FindImplsArgs),
+    /// Find interfaces satisfied by a concrete type (requires gopls)
+    #[command(name = "find-iface")]
+    FindIface(find_iface::FindIfaceArgs),
+    /// Find all references to a symbol (requires gopls)
+    Refs(refs::RefsArgs),
 }

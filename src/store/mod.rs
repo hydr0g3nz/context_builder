@@ -1,3 +1,4 @@
+pub mod edges;
 pub mod files;
 pub mod schema;
 pub mod symbols;

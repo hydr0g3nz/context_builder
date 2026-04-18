@@ -129,6 +129,35 @@ fn row_to_symbol(row: &rusqlite::Row) -> rusqlite::Result<Symbol> {
     })
 }
 
+/// Fetch a single symbol by its rowid.
+pub fn find_symbol_by_id(conn: &Connection, id: i64) -> Result<Option<Symbol>> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT id, kind, name, package, file, line, col, signature, doc, visibility, hash FROM symbols WHERE id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], row_to_symbol)?;
+    Ok(rows.next().transpose()?)
+}
+
+/// Find the symbol whose declaration is closest to (file, line, col).
+/// Used to convert gopls Location → Symbol.
+pub fn find_symbols_at_location(
+    conn: &Connection,
+    file: &str,
+    line: usize,
+    _col: usize,
+) -> Result<Option<Symbol>> {
+    // Find symbol in the same file at the same line, or the nearest one above.
+    let mut stmt = conn.prepare_cached(
+        r#"SELECT id, kind, name, package, file, line, col, signature, doc, visibility, hash
+           FROM symbols
+           WHERE file = ?1 AND line <= ?2
+           ORDER BY line DESC
+           LIMIT 1"#,
+    )?;
+    let mut rows = stmt.query_map(params![file, line as i64], row_to_symbol)?;
+    Ok(rows.next().transpose()?)
+}
+
 pub fn count_symbols_by_kind(conn: &Connection) -> Result<Vec<(String, i64)>> {
     let mut stmt =
         conn.prepare("SELECT kind, COUNT(*) as cnt FROM symbols GROUP BY kind ORDER BY cnt DESC")?;

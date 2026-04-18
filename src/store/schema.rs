@@ -1,9 +1,9 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
-const DDL: &str = r#"
+const DDL_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
@@ -38,23 +38,47 @@ CREATE INDEX IF NOT EXISTS idx_symbols_file         ON symbols(file);
 CREATE INDEX IF NOT EXISTS idx_symbols_kind         ON symbols(kind);
 "#;
 
+const DDL_V2: &str = r#"
+CREATE TABLE IF NOT EXISTS edges (
+    src  INTEGER NOT NULL,
+    dst  INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    meta TEXT,
+    PRIMARY KEY (src, dst, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_edges_src ON edges(src, kind);
+CREATE INDEX IF NOT EXISTS idx_edges_dst ON edges(dst, kind);
+
+CREATE TABLE IF NOT EXISTS edge_resolution (
+    symbol_id   INTEGER NOT NULL,
+    edge_kind   TEXT NOT NULL,
+    resolved_at INTEGER NOT NULL,
+    gopls_version TEXT,
+    PRIMARY KEY (symbol_id, edge_kind)
+);
+"#;
+
 pub fn apply_migrations(conn: &Connection) -> Result<()> {
-    conn.execute_batch(DDL)?;
-    let current: Option<u32> = conn
+    conn.execute_batch(DDL_V1)?;
+
+    let current: u32 = conn
         .query_row(
             "SELECT value FROM meta WHERE key = 'schema_version'",
             [],
             |row| row.get::<_, String>(0),
         )
         .ok()
-        .and_then(|v| v.parse().ok());
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
 
-    if current.is_none() {
+    if current < 2 {
+        conn.execute_batch(DDL_V2)?;
         conn.execute(
             "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?1)",
             rusqlite::params![SCHEMA_VERSION.to_string()],
         )?;
     }
+
     Ok(())
 }
 
