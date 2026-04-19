@@ -218,16 +218,17 @@ pub async fn trace_path(
         }
     }
 
-    // Add edges from cache
-    for node in &reachable {
-        if let Some(nid) = node.symbol.id {
-            if let Ok(edges) = get_edges_from(&store.conn, nid, &EdgeKind::Calls) {
-                for edge in edges {
-                    if let (Some(&src_node), Some(&dst_node)) =
-                        (id_to_node.get(&edge.src), id_to_node.get(&edge.dst))
-                    {
-                        graph.add_edge(src_node, dst_node, ());
-                    }
+    // Add edges from cache — include the root node itself
+    let all_ids: Vec<i64> = std::iter::once(from_id)
+        .chain(reachable.iter().filter_map(|n| n.symbol.id))
+        .collect();
+    for nid in all_ids {
+        if let Ok(edges) = get_edges_from(&store.conn, nid, &EdgeKind::Calls) {
+            for edge in edges {
+                if let (Some(&src_node), Some(&dst_node)) =
+                    (id_to_node.get(&edge.src), id_to_node.get(&edge.dst))
+                {
+                    graph.add_edge(src_node, dst_node, ());
                 }
             }
         }

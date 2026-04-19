@@ -7,7 +7,7 @@ use crate::store::{schema, symbols, files, Store};
 #[derive(Args)]
 pub struct StatusArgs {
     /// Path to Go repository root
-    #[arg(default_value = ".")]
+    #[arg(long, default_value = ".")]
     pub path: PathBuf,
 }
 

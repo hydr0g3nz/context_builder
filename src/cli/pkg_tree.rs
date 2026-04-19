@@ -10,7 +10,7 @@ use crate::output;
 #[derive(Args)]
 pub struct PkgTreeArgs {
     /// Path to Go repository root
-    #[arg(default_value = ".")]
+    #[arg(long, default_value = ".")]
     pub path: PathBuf,
 
     /// Output format

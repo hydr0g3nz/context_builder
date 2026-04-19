@@ -6,8 +6,8 @@ use crate::store::Store;
 
 #[derive(Args)]
 pub struct InitArgs {
-    /// Path to Go repository root (defaults to current directory)
-    #[arg(default_value = ".")]
+    /// Path to Go repository root
+    #[arg(long, default_value = ".")]
     pub path: PathBuf,
 }
 

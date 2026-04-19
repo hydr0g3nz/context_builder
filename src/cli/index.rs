@@ -8,7 +8,7 @@ use crate::store::Store;
 #[derive(Args)]
 pub struct IndexArgs {
     /// Path to Go repository root
-    #[arg(default_value = ".")]
+    #[arg(long, default_value = ".")]
     pub path: PathBuf,
 
     /// Full re-index (truncates existing data)
