@@ -4,6 +4,7 @@ pub mod context;
 pub mod find;
 pub mod find_iface;
 pub mod find_impls;
+pub mod flow;
 pub mod impact;
 pub mod index;
 pub mod init;
@@ -72,4 +73,6 @@ pub enum Commands {
     Impact(impact::ImpactArgs),
     /// Build a ranked context bundle from a free-text task description
     Context(context::ContextArgs),
+    /// Build an AI-readable call+control-flow tree from a root symbol (requires gopls)
+    Flow(flow::FlowArgs),
 }

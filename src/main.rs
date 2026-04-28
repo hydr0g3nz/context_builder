@@ -35,5 +35,6 @@ fn main() -> Result<()> {
         // Phase 3
         Commands::Impact(args) => gocx::cli::impact::run(args),
         Commands::Context(args) => gocx::cli::context::run(args),
+        Commands::Flow(args) => gocx::cli::flow::run(args),
     }
 }

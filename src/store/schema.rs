@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 const DDL_V1: &str = r#"
 CREATE TABLE IF NOT EXISTS meta (
@@ -73,6 +73,13 @@ pub fn apply_migrations(conn: &Connection) -> Result<()> {
 
     if current < 2 {
         conn.execute_batch(DDL_V2)?;
+    }
+
+    if current < 3 {
+        conn.execute_batch("ALTER TABLE symbols ADD COLUMN line_end INTEGER;")?;
+    }
+
+    if current < 3 {
         conn.execute(
             "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?1)",
             rusqlite::params![SCHEMA_VERSION.to_string()],

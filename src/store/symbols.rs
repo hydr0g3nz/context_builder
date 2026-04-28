@@ -5,8 +5,8 @@ use crate::model::{Symbol, SymbolKind, Visibility};
 
 pub fn insert_symbol(conn: &Connection, sym: &Symbol) -> Result<i64> {
     conn.execute(
-        r#"INSERT INTO symbols (kind, name, package, file, line, col, signature, doc, visibility, hash)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
+        r#"INSERT INTO symbols (kind, name, package, file, line, col, line_end, signature, doc, visibility, hash)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"#,
         params![
             sym.kind.as_str(),
             sym.name,
@@ -14,6 +14,7 @@ pub fn insert_symbol(conn: &Connection, sym: &Symbol) -> Result<i64> {
             sym.file,
             sym.line,
             sym.col,
+            sym.line_end,
             sym.signature,
             sym.doc,
             sym.visibility.as_str(),
@@ -27,8 +28,8 @@ pub fn insert_symbols_batch(conn: &mut Connection, symbols: &[Symbol]) -> Result
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare_cached(
-            r#"INSERT INTO symbols (kind, name, package, file, line, col, signature, doc, visibility, hash)
-               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
+            r#"INSERT INTO symbols (kind, name, package, file, line, col, line_end, signature, doc, visibility, hash)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"#,
         )?;
         for sym in symbols {
             stmt.execute(params![
@@ -38,6 +39,7 @@ pub fn insert_symbols_batch(conn: &mut Connection, symbols: &[Symbol]) -> Result
                 sym.file,
                 sym.line,
                 sym.col,
+                sym.line_end,
                 sym.signature,
                 sym.doc,
                 sym.visibility.as_str(),
@@ -82,7 +84,7 @@ pub fn find_symbols(conn: &Connection, q: &FindQuery) -> Result<Vec<Symbol>> {
 
     let where_clause = conditions.join(" AND ");
     let sql = format!(
-        r#"SELECT id, kind, name, package, file, line, col, signature, doc, visibility, hash
+        r#"SELECT id, kind, name, package, file, line, col, line_end, signature, doc, visibility, hash
            FROM symbols
            WHERE {where_clause}
            ORDER BY
@@ -109,7 +111,7 @@ pub fn find_symbols(conn: &Connection, q: &FindQuery) -> Result<Vec<Symbol>> {
 
 fn row_to_symbol(row: &rusqlite::Row) -> rusqlite::Result<Symbol> {
     let kind_str: String = row.get(1)?;
-    let vis_str: String = row.get(9).unwrap_or_else(|_| "private".to_string());
+    let vis_str: String = row.get(10).unwrap_or_else(|_| "private".to_string());
     Ok(Symbol {
         id: Some(row.get(0)?),
         kind: SymbolKind::parse(&kind_str).unwrap_or(SymbolKind::Func),
@@ -118,21 +120,22 @@ fn row_to_symbol(row: &rusqlite::Row) -> rusqlite::Result<Symbol> {
         file: row.get(4)?,
         line: row.get::<_, i64>(5)? as u32,
         col: row.get::<_, i64>(6)? as u32,
-        signature: row.get(7)?,
-        doc: row.get(8)?,
+        line_end: row.get::<_, Option<i64>>(7)?.map(|v| v as u32),
+        signature: row.get(8)?,
+        doc: row.get(9)?,
         visibility: if vis_str == "exported" {
             Visibility::Exported
         } else {
             Visibility::Private
         },
-        hash: row.get(10)?,
+        hash: row.get(11)?,
     })
 }
 
 /// Fetch a single symbol by its rowid.
 pub fn find_symbol_by_id(conn: &Connection, id: i64) -> Result<Option<Symbol>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT id, kind, name, package, file, line, col, signature, doc, visibility, hash FROM symbols WHERE id = ?1",
+        "SELECT id, kind, name, package, file, line, col, line_end, signature, doc, visibility, hash FROM symbols WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], row_to_symbol)?;
     Ok(rows.next().transpose()?)
@@ -148,7 +151,7 @@ pub fn find_symbols_at_location(
 ) -> Result<Option<Symbol>> {
     // Find symbol in the same file at the same line, or the nearest one above.
     let mut stmt = conn.prepare_cached(
-        r#"SELECT id, kind, name, package, file, line, col, signature, doc, visibility, hash
+        r#"SELECT id, kind, name, package, file, line, col, line_end, signature, doc, visibility, hash
            FROM symbols
            WHERE file = ?1 AND line <= ?2
            ORDER BY line DESC
@@ -165,6 +168,26 @@ pub fn count_symbols_by_kind(conn: &Connection) -> Result<Vec<(String, i64)>> {
         .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// Find the innermost function/method whose body contains `line` in `file`.
+pub fn find_containing_function(
+    conn: &Connection,
+    file: &str,
+    line: u32,
+) -> Result<Option<Symbol>> {
+    let mut stmt = conn.prepare_cached(
+        r#"SELECT id, kind, name, package, file, line, col, line_end, signature, doc, visibility, hash
+           FROM symbols
+           WHERE file = ?1
+             AND line <= ?2
+             AND (line_end IS NULL OR line_end >= ?2)
+             AND kind IN ('func', 'method')
+           ORDER BY line DESC
+           LIMIT 1"#,
+    )?;
+    let mut rows = stmt.query_map(params![file, line as i64], row_to_symbol)?;
+    Ok(rows.next().transpose()?)
 }
 
 pub fn truncate_symbols(conn: &Connection) -> Result<()> {
