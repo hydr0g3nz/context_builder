@@ -88,9 +88,13 @@ fn test_schema_v2_migration() {
     let db_path = tmp.path().join("index.db");
     let store = gocx::store::Store::open_or_create(&db_path).unwrap();
 
-    // Verify schema version is 2
+    // Verify schema version is current (v3 adds line_end)
     let version = gocx::store::schema::get_schema_version(&store.conn);
-    assert_eq!(version, Some(2), "schema should be at version 2");
+    assert_eq!(
+        version,
+        Some(gocx::store::schema::SCHEMA_VERSION),
+        "schema should be at current version"
+    );
 
     // Verify edges table exists
     let count: i64 = store
@@ -105,6 +109,17 @@ fn test_schema_v2_migration() {
         .query_row("SELECT COUNT(*) FROM edge_resolution", [], |r| r.get(0))
         .unwrap();
     assert_eq!(count, 0);
+
+    // Verify line_end column exists in symbols
+    let has_line_end: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('symbols') WHERE name='line_end'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(has_line_end, 1, "symbols table should have line_end column");
 }
 
 #[test]
@@ -125,6 +140,7 @@ fn test_edge_crud() {
         file: "a.go".to_string(),
         line: 1,
         col: 0,
+        line_end: None,
         signature: None,
         doc: None,
         visibility: gocx::model::Visibility::Exported,
