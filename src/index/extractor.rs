@@ -155,6 +155,7 @@ fn build_symbol(
             trunc(format!("{} {}", params, result), 200)
         };
         let start = name_node.start_position();
+        let line_end = name_node.parent().map(|p| p.end_position().row as u32 + 1);
         return Some(Symbol {
             id: None,
             kind: SymbolKind::Func,
@@ -165,6 +166,7 @@ fn build_symbol(
             file: file.to_string(),
             line: start.row as u32 + 1,
             col: start.column as u32 + 1,
+            line_end,
             signature: Some(sig),
             hash: None,
         });
@@ -195,6 +197,11 @@ fn build_symbol(
             trunc(format!("{} {}", params, result), 200)
         };
         let start = name_node.start_position();
+        // parent of field_identifier is method_declaration
+        let line_end = name_node
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|p| p.end_position().row as u32 + 1);
         return Some(Symbol {
             id: None,
             kind: SymbolKind::Method,
@@ -205,6 +212,7 @@ fn build_symbol(
             file: file.to_string(),
             line: start.row as u32 + 1,
             col: start.column as u32 + 1,
+            line_end,
             signature: Some(sig),
             hash: None,
         });
@@ -223,6 +231,7 @@ fn build_symbol(
             file: file.to_string(),
             line: start.row as u32 + 1,
             col: start.column as u32 + 1,
+            line_end: None,
             signature: None,
             hash: None,
         });
@@ -241,6 +250,7 @@ fn build_symbol(
             file: file.to_string(),
             line: start.row as u32 + 1,
             col: start.column as u32 + 1,
+            line_end: None,
             signature: None,
             hash: None,
         });
@@ -268,6 +278,7 @@ fn build_symbol(
             file: file.to_string(),
             line: start.row as u32 + 1,
             col: start.column as u32 + 1,
+            line_end: None,
             signature: alias_type,
             hash: None,
         });

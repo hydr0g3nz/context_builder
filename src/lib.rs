@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod context;
+pub mod flow;
 pub mod gopls;
 pub mod impact;
 pub mod index;

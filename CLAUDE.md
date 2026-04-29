@@ -23,7 +23,8 @@ make install        # cargo install --path .
 Run a single test:
 ```bash
 cargo test test_index_fixtures
-cargo test test_schema_v2_migration
+cargo test test_schema_v2_migration   # now verifies v3 + line_end column
+cargo test --lib flow                 # flow module unit tests (controlflow, render)
 ```
 
 ## Architecture
@@ -33,6 +34,7 @@ Three execution phases:
 **Phase 1 — Static index** (no gopls required): `init`, `index`, `status`, `find`, `pkg-tree`
 **Phase 2 — Semantic queries** (spawns gopls): `callers`, `callees`, `trace`, `find-impls`, `find-iface`, `refs`
 **Phase 3 — AI-native** (uses cached graph, gopls optional): `impact`, `context`
+**Phase 3+ — Flow navigator** (requires gopls): `flow`
 
 ### Module Map
 
@@ -47,6 +49,7 @@ Three execution phases:
 | `src/semantic/` | BFS call graph traversal (petgraph), interface implementation resolution |
 | `src/impact/` | Blast-radius analysis: caller BFS + risk signals + breakable test detection |
 | `src/context/` | Smart context: seed extraction → graph expand → rank → pack by file |
+| `src/flow/` | AI-readable call+control-flow tree: `controlflow.rs` (tree-sitter CF extractor), `tree.rs` (DFS builder), `render.rs` (indented text), `interface.rs` (eager impl expansion) |
 
 ### Key Data Flows
 
@@ -60,12 +63,14 @@ Three execution phases:
 
 **Smart context (`context`):** extract Go identifier seeds from free-text task → BFS depth-1 over cached CALLS+IMPLEMENTS edges (no gopls spawn needed) → score by distance+centrality → group by file path. Works offline from cached graph.
 
-### Database Schema (SQLite v2, WAL)
+### Database Schema (SQLite v3, WAL)
 
 - `files` — path, content hash, mtime for incremental indexing
-- `symbols` — id, kind, name, package, file, line/col, signature, visibility; indexed for LIKE/NOCASE name search
+- `symbols` — id, kind, name, package, file, line/col, **line_end** (end line of declaration body), signature, visibility; indexed for LIKE/NOCASE name search
 - `edges` — src\_id, dst\_id, kind (`CALLS`, `IMPLEMENTS`, `USES_TYPE`, `EMBEDS`, `REFERENCES`)
 - `edge_resolution` — tracks which symbols have had their edges resolved via gopls (cache invalidation by gopls version)
+
+`line_end` is populated by the tree-sitter extractor from the declaration node's end position (Func/Method only; NULL for Struct/Interface/TypeAlias). Used by `gocx flow` to scope control-flow extraction. Populated on re-index; NULL for rows indexed before v3.
 
 ### Output Envelope
 
@@ -83,7 +88,7 @@ Integration tests live in `tests/integration.rs` and use fixtures in `tests/fixt
 
 Snapshot tests use `insta`; run `cargo insta review` to approve new snapshots.
 
-## Phase 3 — Impact & Context
+## Phase 3 — Impact, Context & Flow
 
 ### `gocx impact <sym> [--depth=3]`
 - Spawns gopls; runs `semantic::call_graph::callers` BFS
@@ -101,6 +106,20 @@ Pipeline in `src/context/`:
 3. **rank.rs** — score = `0.6 * distance_score + 0.4 * centrality_score`; sort descending; truncate to `limit`
 4. **pack.rs** — group ranked symbols by file path; build summary string
 - Works fully offline if Phase 2 edges are cached; logs debug warning when edges are missing for a seed
+
+### `gocx flow <root> [--depth=3] [--exclude=<substr>] [--json]`
+
+Pipeline in `src/flow/`:
+1. **interface.rs** — `resolve_interface_impls`: if callee is `Interface` or a method on an interface, call `find_implementations` (eager, cached)
+2. **controlflow.rs** — `ControlFlowExtractor::extract_in_range`: tree-sitter query for `if_statement`, `expression_switch_statement`, `type_switch_statement`, `select_statement`, `go_statement`, `defer_statement`, `communication_case`; filtered to `[sym.line, sym.line_end]`
+3. **tree.rs** — `build_flow`: DFS from root; for each function: resolve callees via `resolve_and_cache_callees`, extract CF nodes, merge both by line order; eager-expand `[INTF]` to `[IMPL]`; cycle detection via visited set
+4. **render.rs** — `render_text`: box-drawing indented tree; `--json` emits `ResponseEnvelope` with `FlowNode` tree
+
+Output notation: `[ROOT]`, `[CALL]`, `[INTF]`, `[IMPL]`, `[IF]`, `[SWITCH]`, `[SELECT]`, `[GO]`, `[DEFER]`, `[CASE]` — every node has `file:line:col label signature?`
+
+Node truncation reasons: `"cycle"` (revisited symbol), `"max_depth"` (depth limit hit).
+
+`for`/`range` loops intentionally excluded from L2 — reduces noise for large loops.
 
 ## Known Invariants & Bug Patterns
 

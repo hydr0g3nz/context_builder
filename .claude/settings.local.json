@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/66612.DESKTOP-3DKM78F.000/.claude//**)",
+      "Read(//c/Users/66612.DESKTOP-3DKM78F.000/.claude/**)"
+    ]
+  }
+}

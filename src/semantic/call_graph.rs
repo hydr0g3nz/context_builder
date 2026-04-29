@@ -107,6 +107,10 @@ async fn bfs_edges(
 }
 
 /// Ask gopls for callers + callees of `sym` and persist to edges table.
+pub async fn resolve_and_cache_callees(store: &Store, client: &mut GoplsClient, sym: &Symbol) -> Result<()> {
+    resolve_and_cache(store, client, sym).await
+}
+
 async fn resolve_and_cache(store: &Store, client: &mut GoplsClient, sym: &Symbol) -> Result<()> {
     let sym_id = match sym.id {
         Some(id) => id,

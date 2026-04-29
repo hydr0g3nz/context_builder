@@ -57,6 +57,7 @@ pub struct Symbol {
     pub file: String,
     pub line: u32,
     pub col: u32,
+    pub line_end: Option<u32>,
     pub signature: Option<String>,
     pub doc: Option<String>,
     pub visibility: Visibility,
