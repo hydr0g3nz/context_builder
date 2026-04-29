@@ -13,7 +13,7 @@ pub struct FlowArgs {
     /// Root symbol (e.g. "main", "Server.Run", "UserService.Save")
     pub root: String,
 
-    /// Max call-tree depth
+    /// Max call-tree depth; 0 = unlimited (default: 3)
     #[arg(long, default_value = "3")]
     pub depth: usize,
 
@@ -47,7 +47,7 @@ pub fn run(args: &FlowArgs) -> Result<()> {
         };
 
         let opts = FlowOptions {
-            max_depth: args.depth,
+            max_depth: if args.depth == 0 { None } else { Some(args.depth) },
             exclude_patterns: args.exclude.clone(),
         };
 

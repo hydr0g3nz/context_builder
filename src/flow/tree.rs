@@ -62,7 +62,8 @@ pub struct FlowNode {
 }
 
 pub struct FlowOptions {
-    pub max_depth: usize,
+    /// None = unlimited
+    pub max_depth: Option<usize>,
     pub exclude_patterns: Vec<String>,
 }
 
@@ -122,7 +123,7 @@ async fn expand_node(
     }
     visited.insert(sym_id);
 
-    if depth >= opts.max_depth {
+    if opts.max_depth.is_some_and(|max| depth >= max) {
         node.truncated_reason = Some("max_depth".to_string());
         visited.remove(&sym_id);
         return Ok(node);
